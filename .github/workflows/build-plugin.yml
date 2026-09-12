@@ -1,0 +1,93 @@
+name: Build Paint.NET Quadrilateral Correction
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          ref: PDNv5
+
+      - name: Install .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Install .NET 6 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.x'
+
+      - name: Install Paint.NET
+        shell: powershell
+        run: |
+          winget install --id dotPDN.PaintDotNet `
+            --exact `
+            --silent `
+            --accept-package-agreements `
+            --accept-source-agreements
+
+      - name: Verify Paint.NET installation
+        shell: powershell
+        run: |
+          $pdn = "C:\Program Files\paint.net"
+
+          if (!(Test-Path "$pdn\PaintDotNet.Base.dll")) {
+            Write-Error "Paint.NET was not installed where expected."
+            exit 1
+          }
+
+          Write-Host "Paint.NET found at $pdn"
+          Get-ChildItem "$pdn\PaintDotNet*.dll" | Select-Object Name
+
+      - name: Restore
+        run: dotnet restore pdn-quadrilateral-correction.sln
+
+      - name: Build
+        run: >
+          dotnet build
+          pdn-quadrilateral-correction.sln
+          --configuration Release
+          --no-restore
+
+      - name: Find plugin DLL
+        shell: powershell
+        run: |
+          Write-Host "Searching for QuadrilateralCorrection.dll..."
+
+          Get-ChildItem -Path . -Filter "QuadrilateralCorrection.dll" -Recurse |
+            Select-Object FullName, Length
+
+      - name: Prepare plugin
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+
+          $dlls = Get-ChildItem -Path . `
+            -Filter "QuadrilateralCorrection.dll" `
+            -Recurse |
+            Where-Object { $_.FullName -notlike "*\artifact\*" }
+
+          if ($dlls.Count -eq 0) {
+            Write-Error "QuadrilateralCorrection.dll was not produced."
+            exit 1
+          }
+
+          $dll = $dlls | Select-Object -First 1
+
+          Write-Host "Using:"
+          Write-Host $dll.FullName
+
+          Copy-Item $dll.FullName `
+            "artifact\QuadrilateralCorrection.dll"
+
+      - name: Upload plugin DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuadrilateralCorrection-PDNv5
+          path: artifact/QuadrilateralCorrection.dll
