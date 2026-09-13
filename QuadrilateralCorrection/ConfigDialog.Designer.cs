@@ -499,7 +499,6 @@
             // splitContainerMain.Panel2
             // 
             splitContainerMain.Panel2.Controls.Add(rightRootTableLayoutPanel);
-            splitContainerMain.Panel2.ForeColor = System.Drawing.Color.Transparent;
             splitContainerMain.Panel2.Padding = new System.Windows.Forms.Padding(3);
             splitContainerMain.Size = new System.Drawing.Size(704, 618);
             splitContainerMain.SplitterDistance = 513;
